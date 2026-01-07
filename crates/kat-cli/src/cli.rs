@@ -17,6 +17,14 @@ use clap::{Args, Parser, Subcommand, ValueHint};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,
+
+    /// Enable verbose output.
+    #[arg(short, long, global = true)]
+    pub verbose: bool,
+
+    /// Suppress non-error output.
+    #[arg(short, long, global = true)]
+    pub quiet: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -32,6 +40,37 @@ pub enum Command {
         #[command(subcommand)]
         command: ConfigCommand,
     },
+    /// Convert images to SF Symbols.
+    Sfsymbol(SfsymbolArgs),
+    /// Check external tool dependencies.
+    Doctor,
+}
+
+#[derive(Debug, Args)]
+pub struct SfsymbolArgs {
+    /// Input file or directory.
+    #[arg(required = true, value_hint = ValueHint::AnyPath)]
+    pub input: PathBuf,
+
+    /// Output directory for generated symbols. Defaults to the input file's folder.
+    #[arg(short, long, value_hint = ValueHint::DirPath)]
+    pub output: Option<PathBuf>,
+
+    /// Canvas size for normalization (square).
+    #[arg(long, default_value = "1000")]
+    pub size: u32,
+
+    /// Remove background before processing (for images without transparency).
+    #[arg(long)]
+    pub remove_bg: bool,
+
+    /// Keep temporary files for debugging.
+    #[arg(long)]
+    pub keep_temp: bool,
+
+    /// Custom temporary directory.
+    #[arg(long, value_hint = ValueHint::DirPath)]
+    pub temp_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Args)]

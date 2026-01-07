@@ -1,0 +1,11 @@
+[package]
+name = "kat-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Core types and utilities for Kat asset inventory tool"
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+anyhow.workspace = true

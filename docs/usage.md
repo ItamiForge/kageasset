@@ -1,41 +1,55 @@
-# Kat Usage Guide
+# Usage
 
 ## Scan
 
+Scan directories and generate asset reports.
+
 ```bash
-# Scan current directory, write assets.md (Markdown) and assets.json (JSON)
+# Scan current directory (generates assets.md and assets.json)
 kat scan --json
 
-# Scan specific folders and write to a custom Markdown file
-kat scan ./app ./packages/design --output reports/assets.md
+# Scan specific paths
+kat scan ./app ./packages/design
 
-# Limit to specific extensions and add ad-hoc ignores
-kat scan -e png,svg --ignore "**/exports/**,*.tmp"
+# Custom output path
+kat scan --output reports/assets.md
 
-# Disable the built-in ignore list
+# Limit to specific extensions
+kat scan -e png,svg
+
+# Add ignore patterns
+kat scan --ignore "**/exports/**,*.tmp"
+
+# Disable default ignores
 kat scan --no-default-ignores
 
-# Use a custom configuration file
-kat scan --config ./configs/assets.toml
+# Use custom config file
+kat scan --config ./.kat.toml
 ```
 
-Notes:
-- Markdown report is compact table output.
-- JSON report contains the detailed metadata, hashes, warnings, and (if applicable) config path.
-- Built-in ignore globs skip common build artifacts (`node_modules`, `android`, `ios`, `dist`, etc.).
+Output:
+- **Markdown** (`assets.md`): Compact table with asset info.
+- **JSON** (`assets.json`): Detailed metadata, hashes, and warnings.
 
 ## Info
 
+Inspect a single asset file.
+
 ```bash
-kat info path/to/asset.png
+kat info path/to/image.png
+
+# Include extended metadata
+kat info path/to/image.png --meta
 ```
 
 ## Duplicates
 
+Find duplicate assets by hash.
+
 ```bash
-# Human-friendly summary
+# Human-friendly output
 kat duplicates
 
-# Machine-readable mode
+# JSON output
 kat duplicates --json
 ```

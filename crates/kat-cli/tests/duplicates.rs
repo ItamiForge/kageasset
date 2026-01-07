@@ -1,3 +1,4 @@
+use assert_cmd::prelude::*;
 use serde_json::Value;
 use std::fs;
 use std::process::Command;
@@ -14,7 +15,7 @@ fn write_png(path: &std::path::Path) {
 }
 
 #[test]
-fn duplicates_lists_groups() {
+fn finds_duplicate_groups() {
     let temp = tempdir().expect("temp dir");
     let dir = temp.path();
 
@@ -36,7 +37,7 @@ fn duplicates_lists_groups() {
 }
 
 #[test]
-fn duplicates_json_output() {
+fn duplicates_json_format() {
     let temp = tempdir().expect("temp dir");
     let dir = temp.path();
 
@@ -47,14 +48,10 @@ fn duplicates_json_output() {
         .args(["duplicates", "--json"])
         .current_dir(dir)
         .output()
-        .expect("run duplicates json");
+        .expect("run duplicates");
 
     assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let value: Value = serde_json::from_str(&stdout).expect("parse json");
+    let value: Value = serde_json::from_slice(&output.stdout).expect("parse json");
     assert_eq!(value["total_groups"].as_u64(), Some(1));
-    let assets = value["groups"][0]["assets"]
-        .as_array()
-        .expect("assets array");
-    assert_eq!(assets.len(), 2);
+    assert_eq!(value["groups"][0]["assets"].as_array().expect("assets").len(), 2);
 }

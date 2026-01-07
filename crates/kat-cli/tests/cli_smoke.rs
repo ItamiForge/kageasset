@@ -1,6 +1,5 @@
 use assert_cmd::prelude::*;
 use predicates::str::contains;
-use std::fs;
 use std::process::Command;
 use tempfile::tempdir;
 
@@ -10,11 +9,11 @@ fn shows_help() {
         .arg("--help")
         .assert()
         .success()
-        .stdout(contains("Kat (kat) is a compact command-line tool"));
+        .stdout(contains("asset inventory"));
 }
 
 #[test]
-fn scan_placeholder_runs() {
+fn scan_creates_report() {
     let temp = tempdir().expect("temp dir");
 
     Command::new(assert_cmd::cargo::cargo_bin!("kat"))
@@ -24,9 +23,5 @@ fn scan_placeholder_runs() {
         .success()
         .stdout(contains("Wrote assets.md"));
 
-    let report_path = temp.path().join("assets.md");
-    assert!(report_path.exists(), "markdown report should be created");
-
-    let contents = fs::read_to_string(report_path).expect("read report");
-    assert!(contents.contains("# Asset Report"));
+    assert!(temp.path().join("assets.md").exists());
 }

@@ -1,0 +1,11 @@
+[package]
+name = "kat-pipeline"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pipeline execution engine for Kat"
+
+[dependencies]
+kat-core.workspace = true
+tempfile.workspace = true
+anyhow.workspace = true

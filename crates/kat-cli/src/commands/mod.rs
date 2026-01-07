@@ -3,15 +3,19 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
+use colored::Colorize;
+use indicatif::{ProgressBar, ProgressStyle};
 use serde::Serialize;
 
 use crate::cli::{
     ConfigCommand, ConfigInitArgs, ConfigShowArgs, DuplicateArgs, InfoArgs, ScanArgs, ScanOptions,
+    SfsymbolArgs,
 };
 use crate::config::{self, ConfigFile, ScanSection};
-use crate::metadata::{self, MetadataOptions};
 use crate::report;
-use crate::scanner;
+use kat_pipeline::external::{bgone, imagemagick, potrace, svgo, swiftdraw};
+use kat_scanner::{self as scanner, inspect as metadata_inspect, MetadataOptions};
+use kat_sfsymbol::{sfsymbol_pipeline, sfsymbol_pipeline_with_bg_removal};
 
 pub fn run_scan(args: ScanArgs) -> Result<()> {
     if args.options.paths.is_empty() {
@@ -83,7 +87,7 @@ pub fn run_info(args: InfoArgs) -> Result<()> {
         }
     }
 
-    match metadata::inspect(&path, &bytes, MetadataOptions { deep: args.meta }) {
+    match metadata_inspect(&path, &bytes, MetadataOptions { deep: args.meta }) {
         Ok(meta) => {
             if let (Some(width), Some(height)) = (meta.width, meta.height) {
                 println!("  resolution: {}x{}", width, height);
@@ -367,4 +371,196 @@ fn run_config_init(args: ConfigInitArgs) -> Result<()> {
     println!("Wrote {}", output_path.display());
 
     Ok(())
+}
+
+/// Supported image extensions for SF Symbol conversion.
+const SFSYMBOL_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp"];
+
+pub fn run_sfsymbol(args: SfsymbolArgs, quiet: bool) -> Result<()> {
+    let files = collect_input_files(&args.input)?;
+
+    if files.is_empty() {
+        bail!("no supported image files found in '{}'", args.input.display());
+    }
+
+    if let Some(ref output) = args.output {
+        fs::create_dir_all(output).with_context(|| {
+            format!("failed to create output directory '{}'", output.display())
+        })?;
+    }
+
+    let pipeline = if args.remove_bg {
+        sfsymbol_pipeline_with_bg_removal(args.size).keep_temp(args.keep_temp)
+    } else {
+        sfsymbol_pipeline(args.size).keep_temp(args.keep_temp)
+    };
+
+    if let Err(e) = pipeline.validate_tools() {
+        eprintln!("{}: {}", "Error".red().bold(), e);
+        eprintln!("\nRun 'kat doctor' to check tool availability.");
+        std::process::exit(1);
+    }
+
+    let progress = if !quiet && files.len() > 1 {
+        let pb = ProgressBar::new(files.len() as u64);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
+                .unwrap()
+                .progress_chars("#>-"),
+        );
+        Some(pb)
+    } else {
+        None
+    };
+
+    let mut successes = Vec::new();
+    let mut failures: Vec<(PathBuf, String)> = Vec::new();
+
+    for file in &files {
+        if let Some(ref pb) = progress {
+            pb.set_message(file.file_name().unwrap_or_default().to_string_lossy().to_string());
+        }
+
+        let output_dir = args
+            .output
+            .clone()
+            .or_else(|| file.parent().map(|p| p.to_path_buf()))
+            .unwrap_or_else(|| PathBuf::from("."));
+
+        fs::create_dir_all(&output_dir).with_context(|| {
+            format!("failed to create output directory '{}'", output_dir.display())
+        })?;
+
+        match pipeline.run(file, &output_dir) {
+            Ok(output_path) => {
+                successes.push((file.clone(), output_path));
+            }
+            Err(e) => {
+                failures.push((file.clone(), e.to_string()));
+            }
+        }
+
+        if let Some(ref pb) = progress {
+            pb.inc(1);
+        }
+    }
+
+    if let Some(pb) = progress {
+        pb.finish_and_clear();
+    }
+
+    if !quiet {
+        println!("\n{}", "SF Symbol Generation Complete".green().bold());
+        println!("  {} processed", format!("{} file(s)", successes.len()).cyan());
+        
+        if !failures.is_empty() {
+            println!("  {} failed", format!("{} file(s)", failures.len()).red());
+        }
+
+        if !successes.is_empty() {
+            if let Some(output) = &args.output {
+                println!("\nOutput directory: {}", output.display());
+            } else {
+                println!("\nOutput files saved next to the source images.");
+            }
+        }
+    }
+
+    if !failures.is_empty() {
+        eprintln!("\n{}", "Failures:".red().bold());
+        for (path, error) in &failures {
+            eprintln!("  {} {}", path.display().to_string().yellow(), error);
+        }
+    }
+
+    Ok(())
+}
+
+fn collect_input_files(input: &PathBuf) -> Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+
+    if input.is_file() {
+        // Single file
+        if is_supported_image(input) {
+            files.push(input.clone());
+        } else {
+            bail!(
+                "unsupported file format: '{}'. Supported formats: {}",
+                input.display(),
+                SFSYMBOL_EXTENSIONS.join(", ")
+            );
+        }
+    } else if input.is_dir() {
+        // Directory - collect all supported images
+        for entry in fs::read_dir(input)
+            .with_context(|| format!("failed to read directory '{}'", input.display()))?
+        {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && is_supported_image(&path) {
+                files.push(path);
+            }
+        }
+        files.sort();
+    } else {
+        bail!("input path '{}' does not exist", input.display());
+    }
+
+    Ok(files)
+}
+
+fn is_supported_image(path: &PathBuf) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| SFSYMBOL_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+        .unwrap_or(false)
+}
+
+pub fn run_doctor() -> Result<()> {
+    println!("{}", "SF Symbol Pipeline Tool Check".cyan().bold());
+    println!();
+
+    let tools = vec![
+        bgone(),
+        imagemagick(),
+        potrace(),
+        svgo(),
+        swiftdraw(),
+    ];
+
+    let mut all_available = true;
+
+    println!("{:<15} {:<12} {}", "Tool", "Status", "Install Command");
+    println!("{}", "-".repeat(60));
+
+    for tool in &tools {
+        let available = tool.is_available();
+        let status = if available {
+            "✓ installed".green().to_string()
+        } else {
+            all_available = false;
+            "✗ missing".red().to_string()
+        };
+
+        println!(
+            "{:<15} {:<22} {}",
+            tool.name,
+            status,
+            tool.install_hint.dimmed()
+        );
+    }
+
+    println!();
+
+    if all_available {
+        println!("{}", "All tools are installed and ready!".green().bold());
+        Ok(())
+    } else {
+        println!(
+            "{}",
+            "Some tools are missing. Install them to use the SF Symbol pipeline.".yellow()
+        );
+        std::process::exit(1);
+    }
 }

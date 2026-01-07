@@ -1,0 +1,10 @@
+[package]
+name = "kat-sfsymbol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "SF Symbol generation pipeline for Kat"
+
+[dependencies]
+kat-core.workspace = true
+kat-pipeline.workspace = true

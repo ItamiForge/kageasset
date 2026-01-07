@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::Serialize;
 
-use crate::model::{Asset, ScanResult};
+use kat_scanner::{Asset, ScanResult};
 
 #[derive(Serialize)]
 struct JsonReport<'a> {

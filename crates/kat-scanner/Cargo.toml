@@ -1,0 +1,21 @@
+[package]
+name = "kat-scanner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "File discovery and metadata extraction for Kat"
+
+[dependencies]
+kat-core.workspace = true
+walkdir.workspace = true
+globset.workspace = true
+blake3.workspace = true
+image.workspace = true
+exif.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+pathdiff.workspace = true
+rayon.workspace = true
+indicatif.workspace = true
+quick-xml.workspace = true
+flate2.workspace = true

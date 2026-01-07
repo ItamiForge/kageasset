@@ -1,0 +1,30 @@
+[package]
+name = "kat"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Fast asset inventory and image processing CLI"
+
+[[bin]]
+name = "kat"
+path = "src/main.rs"
+
+[dependencies]
+kat-core.workspace = true
+kat-scanner.workspace = true
+kat-pipeline.workspace = true
+kat-sfsymbol.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+humantime.workspace = true
+indicatif.workspace = true
+colored.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+predicates.workspace = true
+tempfile.workspace = true
+serde_json.workspace = true
