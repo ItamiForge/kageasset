@@ -6,6 +6,8 @@
 
 Fast asset inventory and image processing CLI. Catalog images, extract metadata, detect duplicates, and convert to SF Symbols.
 
+> Catalog: [ItamiForge](https://itamiforge.github.io/itamiforge/docs/projects/#kat)
+
 ## Installation
 
 ```bash

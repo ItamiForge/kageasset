@@ -1,0 +1,13 @@
+catalog: true
+slug: kat
+title: Kat
+summary: Fast asset inventory CLI for image metadata, duplicates, and SF Symbol conversion.
+status: experimental
+category: cli
+featured: false
+visibility: public
+tags:
+  - rust
+  - cli
+  - assets
+install: cargo install --path crates/kat-cli
